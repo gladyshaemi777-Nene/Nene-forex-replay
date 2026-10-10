@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nene Forex Replay</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1020;color:#eef2ff;font-family:Arial,sans-serif;padding:14px}
+h2{margin:4px 0 5px;color:#7dd3fc}
+p{color:#aab6d3;font-size:13px}
+.panel{background:#151d31;padding:13px;border-radius:12px;margin:12px 0}
+label{display:block;font-size:12px;color:#b8c4df;margin:10px 0 5px}
+input,select,button{font-size:15px;border-radius:8px;padding:11px;border:1px solid #394762;background:#0b1223;color:white;width:100%}
+button{background:#176b8b;border:0;font-weight:bold;margin-top:8px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#chart{width:100%;height:300px;display:block;background:#080d19;border-radius:8px}
+.small{font-size:12px;color:#aab6d3}
+.stat{font-size:18px;font-weight:bold}
+.buy{background:#176c50}.sell{background:#943e51}
+</style>
+</head>
+<body>
+<h2>⚡ Nene Forex Replay</h2>
+<p>Practice historical forex price action, one candle at a time.</p>
+<div class="panel">
+<label>Twelve Data API key</label>
+<input id="apiKey" type="password" placeholder="Enter your own API key" autocomplete="off">
+<p class="small">Enter your key only when using the app. This page does not save it to GitHub, but API requests may expose it to the data provider and browser network tools. For stronger protection, use a private API proxy.</p>
+<div class="row">
+<div><label>Forex pair</label><select id="pair">
+<option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>USD/CHF</option><option>AUD/USD</option><option>USD/CAD</option><option>NZD/USD</option><option>EUR/GBP</option><option>EUR/JPY</option><option>GBP/JPY</option><option>EUR/CHF</option><option>EUR/AUD</option><option>GBP/CHF</option><option>AUD/JPY</option><option>CAD/JPY</option><option>CHF/JPY</option>
+</select></div>
+<div><label>Timeframe</label><select id="interval">
+<option value="1min">1 minute</option><option value="5min" selected>5 minutes</option><option value="15min">15 minutes</option><option value="30min">30 minutes</option><option value="1h">1 hour</option><option value="4h">4 hours</option><option value="1day">1 day</option>
+</select></div></div>
+<label>Historical candles to request</label><select id="count"><option value="100">100 candles</option><option value="300" selected>300 candles</option><option value="500">500 candles</option></select>
+<button id="load">Load historical data</button><p id="status">Enter your API key, then load historical data.</p>
+</div>
+<div class="panel">
+<div class="row"><div><span class="small">Current replay candle</span><div class="stat" id="position">0 / 0</div></div><div><span class="small">Candle close</span><div class="stat" id="price">—</div></div></div>
+<canvas id="chart"></canvas><div class="row"><button id="back">◀ Previous</button><button id="next">Next candle ▶</button></div><button id="reset">Restart replay</button><p id="candleInfo">Load data to begin.</p>
+</div>
+<div class="panel"><h3>Practice trade</h3><p class="small">Simulated trades only. No broker orders are placed.</p>
+<div class="row"><button class="buy" id="buy">Simulate Buy</button><button class="sell" id="sell">Simulate Sell</button></div>
+<div class="row"><div><label>Entry</label><div class="stat" id="entry">—</div></div><div><label>Result (price change)</label><div class="stat" id="result">—</div></div></div>
+<button id="close">Close simulated trade</button><p id="tradeStatus">No open practice trade.</p></div>
+<script>
+const $=id=>document.getElementById(id),canvas=$("chart"),ctx=canvas.getContext("2d");
+let candles=[],shown=0,trade=null;
+function resizeCanvas(){const r=canvas.getBoundingClientRect(),d=window.devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);ctx.setTransform(d,0,0,d,0,0);draw()}
+function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);ctx.fillStyle="#080d19";ctx.fillRect(0,0,w,h);
+if(!candles.length||shown===0){ctx.fillStyle="#aab6d3";ctx.font="14px Arial";ctx.fillText("Load historical data to view candles",12,30);return}
+const data=candles.slice(0,shown).slice(-55);let lo=Math.min(...data.map(c=>c.low)),hi=Math.max(...data.map(c=>c.high));if(hi===lo){hi+=.001;lo-=.001}
+const pad=12,top=15,bottom=h-22,step=(w-pad*2)/data.length,y=v=>bottom-(v-lo)/(hi-lo)*(bottom-top);
+ctx.strokeStyle="#26334b";for(let i=0;i<5;i++){let yy=top+(bottom-top)*i/4;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(w,yy);ctx.stroke()}
+data.forEach((c,i)=>{let x=pad+i*step+step/2;ctx.strokeStyle=ctx.fillStyle=c.close>=c.open?"#31d6a0":"#ff657a";ctx.beginPath();ctx.moveTo(x,y(c.high));ctx.lineTo(x,y(c.low));ctx.stroke();let yy=Math.min(y(c.open),y(c.close)),hh=Math.max(1,Math.abs(y(c.open)-y(c.close)));ctx.fillRect(x-Math.max(1,step*.28),yy,Math.max(2,step*.56),hh)});
+ctx.fillStyle="#cbd5e1";ctx.font="11px Arial";ctx.fillText(hi.toFixed(5),4,12);ctx.fillText(lo.toFixed(5),4,h-5)}
+function update(){ $("position").textContent=shown+" / "+candles.length;if(!shown){$("price").textContent="—";$("candleInfo").textContent="Load data to begin.";draw();return}
+const c=candles[shown-1];$("price").textContent=c.close;$("candleInfo").textContent=c.time+" · O "+c.open+" H "+c.high+" L "+c.low+" C "+c.close;
+if(trade)$("result").textContent=((c.close-trade.entry)*(trade.side==="buy"?1:-1)).toFixed(5);draw()}
+$("load").onclick=async()=>{const key=$("apiKey").value.trim();if(!key){$("status").textContent="Please enter your API key.";return}
+$("status").textContent="Loading data…";$("load").disabled=true;
+try{const url="https://api.twelvedata.com/time_series?symbol="+encodeURIComponent($("pair").value)+"&interval="+encodeURIComponent($("interval").value)+"&outputsize="+$("count").value+"&apikey="+encodeURIComponent(key);
+const response=await fetch(url),data=await response.json();if(!response.ok||data.status==="error"||!data.values)throw Error(data.message||"Data unavailable. Check your key, plan and API allowance.");
+candles=data.values.slice().reverse().map(v=>({time:v.datetime,open:+v.open,high:+v.high,low:+v.low,close:+v.close}));shown=Math.min(30,candles.length);trade=null;$("entry").textContent="—";$("result").textContent="—";$("tradeStatus").textContent="No open practice trade.";$("status").textContent="Loaded "+candles.length+" candles. Replay is ready.";update()
+}catch(e){$("status").textContent="Could not load: "+e.message}finally{$("load").disabled=false}};
+$("next").onclick=()=>{if(shown<candles.length){shown++;update()}};$("back").onclick=()=>{if(shown>1){shown--;update()}};
+$("reset").onclick=()=>{shown=Math.min(30,candles.length);trade=null;$("entry").textContent="—";$("result").textContent="—";$("tradeStatus").textContent="Replay restarted.";update()};
+function openTrade(side){if(!shown){$("tradeStatus").textContent="Load data first.";return}if(trade){$("tradeStatus").textContent="Close your current trade first.";return}trade={side,entry:candles[shown-1].close};$("entry").textContent=trade.entry;$("result").textContent="0.00000";$("tradeStatus").textContent="Open simulated "+side.toUpperCase()+" at candle "+shown+"."}
+$("buy").onclick=()=>openTrade("buy");$("sell").onclick=()=>openTrade("sell");
+$("close").onclick=()=>{if(!trade){$("tradeStatus").textContent="No open trade.";return}const c=candles[shown-1],diff=(c.close-trade.entry)*(trade.side==="buy"?1:-1);$("result").textContent=diff.toFixed(5);$("tradeStatus").textContent="Trade closed. Price change: "+diff.toFixed(5);trade=null};
+window.addEventListener("resize",resizeCanvas);resizeCanvas();
+</script></body></html>
